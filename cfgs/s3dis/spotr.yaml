@@ -1,0 +1,35 @@
+model:
+  NAME: BaseSeg
+  encoder_args:
+    NAME: SPoTrEncoder
+    blocks: [1, 5, 5, 5, 5]
+    strides: [1, 4, 4, 4, 4]
+    width: 64
+    in_channels: 4
+    expansion: 4
+    radius: 0.1
+    nsample: 32
+    gamma: 16
+    num_gp: 16
+    tau: 0.5
+    task: 'seg'
+    aggr_args:
+      feature_type: 'dp_df'
+      reduction: 'max'
+    group_args:
+      NAME: 'ballquery'
+      normalize_dp: True
+    conv_args:
+      order: conv-norm-act
+    act_args:
+      act: 'relu'
+    norm_args:
+      norm: 'bn'
+  decoder_args:
+    NAME: SPoTrDecoder
+  cls_args:
+    NAME: SegHead
+    num_classes: 13
+    in_channels: null
+    norm_args:
+      norm: 'bn'
