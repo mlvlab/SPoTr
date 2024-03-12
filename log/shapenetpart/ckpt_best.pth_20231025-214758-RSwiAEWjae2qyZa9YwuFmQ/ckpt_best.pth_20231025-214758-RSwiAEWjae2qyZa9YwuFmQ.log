@@ -1,0 +1,131 @@
+[10/25 21:47:58] ShapeNetPartNormal INFO: dist_url: tcp://localhost:8888
+dist_backend: nccl
+multiprocessing_distributed: False
+ngpus_per_node: 1
+world_size: 1
+launcher: mp
+local_rank: 0
+use_gpu: True
+seed: 673
+epoch: 0
+epochs: 150
+ignore_index: None
+val_fn: validate
+deterministic: False
+sync_bn: False
+criterion_args:
+  NAME: Poly1FocalLoss
+use_mask: False
+grad_norm_clip: 1
+layer_decay: 0
+step_per_update: 1
+start_epoch: 1
+sched_on_epoch: True
+wandb:
+  use_wandb: False
+  project: PointNext-ShapeNetPart
+  tags: ['test']
+  name: ckpt_best.pth_20231025-214758-RSwiAEWjae2qyZa9YwuFmQ
+use_amp: False
+use_voting: False
+val_freq: 1
+resume: False
+test: False
+finetune: False
+mode: test
+logname: None
+load_path: None
+print_freq: 10
+save_freq: -1
+root_dir: log/shapenetpart
+pretrained_path: ckpt/ShapeNetPart/ckpt_best.pth
+datatransforms:
+  train: ['PointsToTensor', 'PointCloudScaling', 'PointCloudCenterAndNormalize', 'PointCloudJitter', 'ChromaticDropGPU']
+  val: ['PointsToTensor', 'PointCloudCenterAndNormalize']
+  vote: ['PointCloudScaling']
+  kwargs:
+    jitter_sigma: 0.001
+    jitter_clip: 0.005
+    scale: [0.8, 1.2]
+    gravity_dim: 1
+    angle: [0, 1.0, 0]
+feature_keys: pos,x,heights
+dataset:
+  common:
+    NAME: ShapeNetPartNormal
+    data_root: data/ShapeNetPart/shapenetcore_partanno_segmentation_benchmark_v0_normal
+    use_normal: True
+    num_points: 2048
+  train:
+    split: trainval
+  val:
+    split: test
+    presample: True
+num_classes: 50
+shape_classes: 16
+num_points: 2048
+normal_channel: True
+batch_size: 8
+dataloader:
+  num_workers: 6
+num_votes: 10
+refine: True
+lr: 0.001
+min_lr: None
+optimizer:
+  NAME: adamw
+  weight_decay: 0.0001
+sched: multistep
+decay_epochs: [90, 120]
+decay_rate: 0.5
+warmup_epochs: 0
+model:
+  NAME: BasePartSeg
+  encoder_args:
+    NAME: SPoTrEncoder
+    blocks: [1, 1, 1, 1, 1]
+    strides: [1, 2, 2, 2, 2]
+    width: 128
+    in_channels: 7
+    num_layers: 3
+    expansion: 4
+    radius: 0.1
+    radius_scaling: 2.5
+    nsample: 32
+    gamma: 16
+    num_gp: 16
+    tau_delta: 0.1
+    aggr_args:
+      feature_type: dp_df
+    reduction: max
+    group_args:
+      NAME: ballquery
+      normalize_dp: True
+    conv_args:
+      order: conv-norm-act
+    act_args:
+      act: relu
+    norm_args:
+      norm: bn
+  decoder_args:
+    NAME: SPoTrPartDecoder
+  cls_args:
+    NAME: SegHead
+    globals: max,avg
+    num_classes: 50
+    in_channels: None
+    norm_args:
+      norm: bn
+rank: 0
+distributed: False
+mp: False
+task_name: shapenetpart
+cfg_basename: spotr
+is_training: False
+run_name: ckpt_best.pth_20231025-214758-RSwiAEWjae2qyZa9YwuFmQ
+run_dir: log/shapenetpart/ckpt_best.pth_20231025-214758-RSwiAEWjae2qyZa9YwuFmQ
+log_dir: log/shapenetpart/ckpt_best.pth_20231025-214758-RSwiAEWjae2qyZa9YwuFmQ
+ckpt_dir: log/shapenetpart/ckpt_best.pth_20231025-214758-RSwiAEWjae2qyZa9YwuFmQ/checkpoint
+code_dir: log/shapenetpart/ckpt_best.pth_20231025-214758-RSwiAEWjae2qyZa9YwuFmQ/code
+log_path: log/shapenetpart/ckpt_best.pth_20231025-214758-RSwiAEWjae2qyZa9YwuFmQ/ckpt_best.pth_20231025-214758-RSwiAEWjae2qyZa9YwuFmQ.log
+cfg_path: log/shapenetpart/ckpt_best.pth_20231025-214758-RSwiAEWjae2qyZa9YwuFmQ/cfg.yaml

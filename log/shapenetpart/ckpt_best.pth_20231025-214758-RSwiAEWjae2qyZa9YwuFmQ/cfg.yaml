@@ -1,0 +1,177 @@
+!!python/object/new:openpoints.utils.config.EasyConfig
+dictitems:
+  batch_size: 8
+  cfg_basename: spotr
+  ckpt_dir: log/shapenetpart/ckpt_best.pth_20231025-214758-RSwiAEWjae2qyZa9YwuFmQ/checkpoint
+  code_dir: log/shapenetpart/ckpt_best.pth_20231025-214758-RSwiAEWjae2qyZa9YwuFmQ/code
+  criterion_args: !!python/object/new:openpoints.utils.config.EasyConfig
+    dictitems:
+      NAME: Poly1FocalLoss
+  dataloader: !!python/object/new:openpoints.utils.config.EasyConfig
+    dictitems:
+      num_workers: 6
+  dataset: !!python/object/new:openpoints.utils.config.EasyConfig
+    dictitems:
+      common: !!python/object/new:openpoints.utils.config.EasyConfig
+        dictitems:
+          NAME: ShapeNetPartNormal
+          data_root: data/ShapeNetPart/shapenetcore_partanno_segmentation_benchmark_v0_normal
+          num_points: 2048
+          use_normal: true
+      train: !!python/object/new:openpoints.utils.config.EasyConfig
+        dictitems:
+          split: trainval
+      val: !!python/object/new:openpoints.utils.config.EasyConfig
+        dictitems:
+          presample: true
+          split: test
+  datatransforms: !!python/object/new:openpoints.utils.config.EasyConfig
+    dictitems:
+      kwargs: !!python/object/new:openpoints.utils.config.EasyConfig
+        dictitems:
+          angle:
+          - 0
+          - 1.0
+          - 0
+          gravity_dim: 1
+          jitter_clip: 0.005
+          jitter_sigma: 0.001
+          scale:
+          - 0.8
+          - 1.2
+      train:
+      - PointsToTensor
+      - PointCloudScaling
+      - PointCloudCenterAndNormalize
+      - PointCloudJitter
+      - ChromaticDropGPU
+      val:
+      - PointsToTensor
+      - PointCloudCenterAndNormalize
+      vote:
+      - PointCloudScaling
+  decay_epochs:
+  - 90
+  - 120
+  decay_rate: 0.5
+  deterministic: false
+  dist_backend: nccl
+  dist_url: tcp://localhost:8888
+  distributed: false
+  epoch: 0
+  epochs: 150
+  feature_keys: pos,x,heights
+  finetune: false
+  grad_norm_clip: 1
+  ignore_index: null
+  is_training: false
+  launcher: mp
+  layer_decay: 0
+  load_path: null
+  local_rank: 0
+  log_dir: log/shapenetpart/ckpt_best.pth_20231025-214758-RSwiAEWjae2qyZa9YwuFmQ
+  log_path: log/shapenetpart/ckpt_best.pth_20231025-214758-RSwiAEWjae2qyZa9YwuFmQ/ckpt_best.pth_20231025-214758-RSwiAEWjae2qyZa9YwuFmQ.log
+  logname: null
+  lr: 0.001
+  min_lr: null
+  mode: test
+  model: !!python/object/new:openpoints.utils.config.EasyConfig
+    dictitems:
+      NAME: BasePartSeg
+      cls_args: !!python/object/new:openpoints.utils.config.EasyConfig
+        dictitems:
+          NAME: SegHead
+          globals: max,avg
+          in_channels: null
+          norm_args: !!python/object/new:openpoints.utils.config.EasyConfig
+            dictitems:
+              norm: bn
+          num_classes: 50
+      decoder_args: !!python/object/new:openpoints.utils.config.EasyConfig
+        dictitems:
+          NAME: SPoTrPartDecoder
+      encoder_args: !!python/object/new:openpoints.utils.config.EasyConfig
+        dictitems:
+          NAME: SPoTrEncoder
+          act_args: !!python/object/new:openpoints.utils.config.EasyConfig
+            dictitems:
+              act: relu
+          aggr_args: !!python/object/new:openpoints.utils.config.EasyConfig
+            dictitems:
+              feature_type: dp_df
+          blocks:
+          - 1
+          - 1
+          - 1
+          - 1
+          - 1
+          conv_args: !!python/object/new:openpoints.utils.config.EasyConfig
+            dictitems:
+              order: conv-norm-act
+          expansion: 4
+          gamma: 16
+          group_args: !!python/object/new:openpoints.utils.config.EasyConfig
+            dictitems:
+              NAME: ballquery
+              normalize_dp: true
+          in_channels: 7
+          norm_args: !!python/object/new:openpoints.utils.config.EasyConfig
+            dictitems:
+              norm: bn
+          nsample: 32
+          num_gp: 16
+          num_layers: 3
+          radius: 0.1
+          radius_scaling: 2.5
+          reduction: max
+          strides:
+          - 1
+          - 2
+          - 2
+          - 2
+          - 2
+          tau_delta: 0.1
+          width: 128
+  mp: false
+  multiprocessing_distributed: false
+  ngpus_per_node: 1
+  normal_channel: true
+  num_classes: 50
+  num_points: 2048
+  num_votes: 10
+  optimizer: !!python/object/new:openpoints.utils.config.EasyConfig
+    dictitems:
+      NAME: adamw
+      weight_decay: 0.0001
+  pretrained_path: ckpt/ShapeNetPart/ckpt_best.pth
+  print_freq: 10
+  rank: 0
+  refine: true
+  resume: false
+  root_dir: log/shapenetpart
+  run_dir: log/shapenetpart/ckpt_best.pth_20231025-214758-RSwiAEWjae2qyZa9YwuFmQ
+  run_name: ckpt_best.pth_20231025-214758-RSwiAEWjae2qyZa9YwuFmQ
+  save_freq: -1
+  sched: multistep
+  sched_on_epoch: true
+  seed: 673
+  shape_classes: 16
+  start_epoch: 1
+  step_per_update: 1
+  sync_bn: false
+  task_name: shapenetpart
+  test: false
+  use_amp: false
+  use_gpu: true
+  use_mask: false
+  use_voting: false
+  val_fn: validate
+  val_freq: 1
+  wandb: !!python/object/new:openpoints.utils.config.EasyConfig
+    dictitems:
+      project: PointNext-ShapeNetPart
+      tags:
+      - test
+      use_wandb: false
+  warmup_epochs: 0
+  world_size: 1
