@@ -68,6 +68,8 @@ def new_attention(x_i, y_j=None, attn=None, aux_attn= None, tau= 1):
 
 
 class SPALPA(nn.Module):
+    """The modified set abstraction module in PointNet++ with residual connection support
+    """
     def __init__(self,
                  in_channels, out_channels,
                  layers=1,
@@ -83,7 +85,7 @@ class SPALPA(nn.Module):
                  is_head=False,
                  gamma=16,
                  num_gp=16,
-                 tau=1,
+                 tau_delta=1,
                  **kwargs
                  ):
         super().__init__()
@@ -93,7 +95,7 @@ class SPALPA(nn.Module):
         self.use_res = use_res and not self.all_aggr and not self.is_head
         self.feature_type = feature_type
         self.gamma =gamma
-        self.tau=tau
+        self.tau_delta=tau_delta
         self.use_global = True if (not self.is_head) and (not self.all_aggr) else False
         
         self.alpha=nn.Parameter(torch.zeros((1,), dtype=torch.float32)) 
@@ -179,7 +181,7 @@ class SPALPA(nn.Module):
                 B, D, N_s = fi.shape #
 
                 fj = get_aggregation_features(new_p, dp, fi, fj, feature_type=self.feature_type)
-                updated_local_f = new_attention(self.convs(fj), attn = self.attn_local(fj), tau=self.tau)
+                updated_local_f = new_attention(self.convs(fj), attn = self.attn_local(fj))
                 if self.use_global:
                     z = repeat(self.z, 'm d -> b m d', b=B).contiguous()
                     interpolation_map = torch.bmm(z,fi) # (b,m,d)(b,d,n),  -> (b, m, n)
@@ -188,14 +190,14 @@ class SPALPA(nn.Module):
                     dist = torch.cdist(global_p, new_p) # (b,m,3),(b,n,3) -> (b,m,n)
                     g_kern = torch.exp(-self.gamma*dist.pow(2)) #(b, m, n)
                     
-                    global_f = new_attention(fi, z.transpose(1,2), aux_attn=g_kern)
+                    global_f = new_attention(fi, z.transpose(1,2), aux_attn=g_kern, tau=self.tau_delta)
 
 
                     global_dp = rearrange(global_p[:,None,:,:]-new_p[:,:,None,:], 'b n m d -> b d n m').contiguous() # b 3 m n
                     global_fj = repeat(global_f, 'b d m -> b d n m', n=new_p.size(1)).contiguous()
                     global_fj = get_aggregation_features(new_p, global_dp, fi, global_fj, feature_type=self.feature_type) # (b,d+3,n',m)
                     
-                    updated_global_f = new_attention(self.gconvs(global_fj), attn = self.attn_global(global_fj), tau=self.tau)# (b,d+3,n',m) -> (b,d',n')
+                    updated_global_f = new_attention(self.gconvs(global_fj), attn = self.attn_global(global_fj), tau=self.tau_delta)# (b,d+3,n',m) -> (b,d',n')
 
                     
                     alpha = self.alpha.sigmoid()
@@ -215,6 +217,9 @@ class SPALPA(nn.Module):
 
 
 class FeaturePropogation(nn.Module):
+    """The Feature Propogation module in PointNet++
+    """
+
     def __init__(self, mlp,
                  upsample=True,
                  norm_args={'norm': 'bn1d'},
@@ -282,14 +287,14 @@ class LPAMLP(nn.Module):
                  less_act=False,
                  gamma=16,
                  num_gp=16,
-                 tau=1,
+                 tau_delta=1,
                  **kwargs
                  ):
         super().__init__()
         
         self.gamma = gamma
         self.num_gp = num_gp
-        self.tau = tau
+        self.tau_delta = tau_delta
         
         self.use_res = use_res
         self.feature_type = aggr_args['feature_type']
@@ -392,7 +397,7 @@ class SPoTrEncoder(nn.Module):
         
         gamma = kwargs.get('gamma', 16)
         num_gp = kwargs.get('num_gp', 16)
-        tau = kwargs.get('tau', 1)
+        tau_delta = kwargs.get('tau_delta', 1)
         
         self.radii = self._to_full_list(radius, radius_scaling)
         self.nsample = self._to_full_list(nsample, nsample_scaling)
@@ -410,7 +415,7 @@ class SPoTrEncoder(nn.Module):
             encoder.append(self._make_enc(
                 block, channels[i], blocks[i], stride=strides[i], group_args=group_args,
                 is_head=i == 0 and strides[i] == 1, 
-                gamma=gamma, num_gp=num_gp, tau=tau,
+                gamma=gamma, num_gp=num_gp, tau_delta=tau_delta,
             ))
         self.encoder = nn.Sequential(*encoder)
         self.out_channels = channels[-1]
@@ -437,7 +442,7 @@ class SPoTrEncoder(nn.Module):
         return param_list
 
     def _make_enc(self, block, channels, blocks, stride, group_args, is_head=False,
-                  gamma=16, num_gp=8, tau=1):
+                  gamma=16, num_gp=8, tau_delta=1):
         layers = []
         radii = group_args.radius
         nsample = group_args.nsample
@@ -448,7 +453,7 @@ class SPoTrEncoder(nn.Module):
                                      group_args=group_args, norm_args=self.norm_args, act_args=self.act_args, conv_args=self.conv_args,
                                      sampler=self.sampler, use_res=self.use_res, is_head=is_head,
                                      gamma=gamma,
-                                     num_gp=num_gp, tau=tau,
+                                     num_gp=num_gp, tau_delta=tau_delta,
                                      **self.aggr_args
                                      ))
      
@@ -460,7 +465,7 @@ class SPoTrEncoder(nn.Module):
                                 aggr_args=self.aggr_args,
                                 norm_args=self.norm_args, act_args=self.act_args, group_args=group_args,
                                 conv_args=self.conv_args, expansion=self.expansion,
-                                use_res=self.use_res, gamma=gamma, num_gp=num_gp, tau=tau
+                                use_res=self.use_res, gamma=gamma, num_gp=num_gp, tau_delta=1
                                 ))
         return nn.Sequential(*layers)
 
