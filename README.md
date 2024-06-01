@@ -41,7 +41,7 @@ CUDA_VISIBLE_DEVICES='0' python examples/shapenetpart/main.py --cfg cfgs/shapene
 ```
 - Inference
 ```
-CUDA_VISIBLE_DEVICES='0' python examples/segmentation/main.py --cfg cfgs/shapenetpart/spotr.yaml mode=test --pretrained_path ckpt/ShapeNetPart/ckpt_best.pth
+CUDA_VISIBLE_DEVICES='0' python examples/shapenetpart/main.py --cfg cfgs/shapenetpart/spotr.yaml mode=test --pretrained_path ckpt/ShapeNetPart/ckpt_best.pth
 ```
 ### S3DIS
 - Train
