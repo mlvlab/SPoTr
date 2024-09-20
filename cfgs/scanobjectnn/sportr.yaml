@@ -1,0 +1,38 @@
+model:
+  NAME: BaseCls
+  encoder_args:
+    NAME: SPoTrEncoder
+    blocks: [ 1, 1, 1, 1, 1, 1 ] 
+    strides: [ 1, 2, 2, 2, 2, 1 ]
+    width: 48
+    in_channels: 4
+    num_layers: 2
+    expansion: 4
+    radius: 0.15
+    radius_scaling: 1.5
+    nsample: 32 # will not improve performance. 
+    gamma: 16
+    num_gp: 16
+    tau_delta: 0.1
+    tau_local: 0.1
+    is_cls: True
+    aggr_args:
+      feature_type: 'dp_df'
+    reduction: 'max'
+    group_args:
+      NAME: 'ballquery'
+      normalize_dp: True
+    conv_args:
+      order: conv-norm-act
+    act_args:
+      act: 'relu' # leakrelu makes training unstable.
+    norm_args:
+      norm: 'bn'  # ln makes training unstable
+  decoder_args:
+    NAME: SPoTrPartDecoder
+  cls_args: 
+    NAME: ClsHead
+    num_classes: 15
+    mlps: [512, 256]
+    norm_args: 
+      norm: 'bn1d'

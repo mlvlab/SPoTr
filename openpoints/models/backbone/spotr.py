@@ -86,6 +86,8 @@ class SPALPA(nn.Module):
                  gamma=16,
                  num_gp=16,
                  tau_delta=1,
+                 tau_local=1,
+                 is_cls=False,
                  **kwargs
                  ):
         super().__init__()
@@ -96,6 +98,8 @@ class SPALPA(nn.Module):
         self.feature_type = feature_type
         self.gamma =gamma
         self.tau_delta=tau_delta
+        self.tau_local=tau_local
+        self.is_cls = is_cls
         self.use_global = True if (not self.is_head) and (not self.all_aggr) else False
         
         self.alpha=nn.Parameter(torch.zeros((1,), dtype=torch.float32)) 
@@ -122,7 +126,7 @@ class SPALPA(nn.Module):
                                      **conv_args)
                          )
         self.convs = nn.Sequential(*convs)
-        if not self.all_aggr:
+        if not self.all_aggr and not self.is_cls:
             self.attn_local = create_conv(channels[0], channels[-1],
                                         norm_args=norm_args,
                                         act_args=None,
@@ -140,7 +144,8 @@ class SPALPA(nn.Module):
                 
                 
             self.gconvs = nn.Sequential(*gconvs)
-            self.attn_global = create_conv(channels[0], channels[-1],
+            if not self.is_cls:
+                self.attn_global = create_conv(channels[0], channels[-1],
                                         norm_args=norm_args,
                                         act_args=None,
                                         **conv_args)
@@ -171,17 +176,23 @@ class SPALPA(nn.Module):
             else:
                 new_p = p
                 
+            fi = None
             if self.use_res or 'df' in self.feature_type:
-                fi = torch.gather(
-                    f, -1, idx.unsqueeze(1).expand(-1, f.shape[1], -1))
+                if not self.all_aggr:
+                    fi = torch.gather(
+                        f, -1, idx.unsqueeze(1).expand(-1, f.shape[1], -1))
+                    B, D, N_s = fi.shape #
                 if self.use_res:
                     identity = self.skipconv(fi)
-                dp, fj = self.grouper(new_p, p, f)  #(b,3,n_s,k), (b, hidden_dim, n_s, k)
-
-                B, D, N_s = fi.shape #
-
+            dp, fj = self.grouper(new_p, p, f)  #(b,3,n_s,k), (b, hidden_dim, n_s, k)
+            if self.all_aggr:
+                fj = get_aggregation_features(new_p, dp, fi, fj, feature_type="dp_fj")
+                f = self.pool(self.convs(fj))
+            else:
                 fj = get_aggregation_features(new_p, dp, fi, fj, feature_type=self.feature_type)
-                updated_local_f = new_attention(self.convs(fj), attn = self.attn_local(fj))
+                attn = self.attn_local(fj) if not self.is_cls else self.convs(fj).detach()
+                updated_local_f = new_attention(self.convs(fj), attn = attn, tau=self.tau_local)
+
                 if self.use_global:
                     z = repeat(self.z, 'm d -> b m d', b=B).contiguous()
                     interpolation_map = torch.bmm(z,fi) # (b,m,d)(b,d,n),  -> (b, m, n)
@@ -197,18 +208,13 @@ class SPALPA(nn.Module):
                     global_fj = repeat(global_f, 'b d m -> b d n m', n=new_p.size(1)).contiguous()
                     global_fj = get_aggregation_features(new_p, global_dp, fi, global_fj, feature_type=self.feature_type) # (b,d+3,n',m)
                     
-                    updated_global_f = new_attention(self.gconvs(global_fj), attn = self.attn_global(global_fj), tau=self.tau_delta)# (b,d+3,n',m) -> (b,d',n')
+                    global_attn = self.attn_global(global_fj) if not self.is_cls else self.gconvs(global_fj).detach()
+                    updated_global_f = new_attention(self.gconvs(global_fj), attn = global_attn, tau=self.tau_delta)# (b,d+3,n',m) -> (b,d',n')
+
 
                     
                     alpha = self.alpha.sigmoid()
                     f = updated_local_f*(1-alpha) + updated_global_f*alpha
-
-
-            else:
-                fi = None
-                dp, fj = self.grouper(new_p, p, f)  #(b,3,n_s,k), (b, hidden_dim, n_s, k)
-                fj = get_aggregation_features(new_p, dp, fi, fj, feature_type=self.feature_type)
-                f = self.pool(self.convs(fj))
 
             if self.use_res:
                 f = self.act(f + identity)
@@ -398,6 +404,8 @@ class SPoTrEncoder(nn.Module):
         gamma = kwargs.get('gamma', 16)
         num_gp = kwargs.get('num_gp', 16)
         tau_delta = kwargs.get('tau_delta', 1)
+        tau_local = kwargs.get('tau_local', 1)
+        is_cls = kwargs.get('is_cls', False)
         
         self.radii = self._to_full_list(radius, radius_scaling)
         self.nsample = self._to_full_list(nsample, nsample_scaling)
@@ -415,7 +423,7 @@ class SPoTrEncoder(nn.Module):
             encoder.append(self._make_enc(
                 block, channels[i], blocks[i], stride=strides[i], group_args=group_args,
                 is_head=i == 0 and strides[i] == 1, 
-                gamma=gamma, num_gp=num_gp, tau_delta=tau_delta,
+                gamma=gamma, num_gp=num_gp, tau_delta=tau_delta, tau_local=tau_local, is_cls=is_cls
             ))
         self.encoder = nn.Sequential(*encoder)
         self.out_channels = channels[-1]
@@ -442,7 +450,7 @@ class SPoTrEncoder(nn.Module):
         return param_list
 
     def _make_enc(self, block, channels, blocks, stride, group_args, is_head=False,
-                  gamma=16, num_gp=8, tau_delta=1):
+                  gamma=16, num_gp=8, tau_delta=1, tau_local=1, is_cls=False):
         layers = []
         radii = group_args.radius
         nsample = group_args.nsample
@@ -453,7 +461,7 @@ class SPoTrEncoder(nn.Module):
                                      group_args=group_args, norm_args=self.norm_args, act_args=self.act_args, conv_args=self.conv_args,
                                      sampler=self.sampler, use_res=self.use_res, is_head=is_head,
                                      gamma=gamma,
-                                     num_gp=num_gp, tau_delta=tau_delta,
+                                     num_gp=num_gp, tau_delta=tau_delta, tau_local=tau_local, is_cls=is_cls,
                                      **self.aggr_args
                                      ))
      
@@ -465,7 +473,7 @@ class SPoTrEncoder(nn.Module):
                                 aggr_args=self.aggr_args,
                                 norm_args=self.norm_args, act_args=self.act_args, group_args=group_args,
                                 conv_args=self.conv_args, expansion=self.expansion,
-                                use_res=self.use_res, gamma=gamma, num_gp=num_gp, tau_delta=1
+                                use_res=self.use_res, gamma=gamma, num_gp=num_gp, tau_delta=1,
                                 ))
         return nn.Sequential(*layers)
 
@@ -481,7 +489,7 @@ class SPoTrEncoder(nn.Module):
             p.append(p0)
             f.append(f0)
         dicts = {"p":p, "f" :f}
-        return f0.squeeze(-1), dicts
+        return f0.squeeze(-1)
 
     def forward_seg_feat(self, p0, f0=None):
         if hasattr(p0, 'keys'):
