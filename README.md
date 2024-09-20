@@ -1,6 +1,6 @@
 # Self-positioning Point-based Transformer for Point Cloud Understanding
 
-Official pytorch implementation of "Self-positioning Point-based Transformer for Point Cloud Understanding" (CVPR 2023).
+Official pytorch implementation of "[Self-positioning Point-based Transformer for Point Cloud Understanding](https://openaccess.thecvf.com/content/CVPR2023/html/Park_Self-Positioning_Point-Based_Transformer_for_Point_Cloud_Understanding_CVPR_2023_paper.html)" (CVPR 2023).
 
 ![Figure](./assets/main_figure.png)
 
@@ -41,7 +41,7 @@ CUDA_VISIBLE_DEVICES='0' python examples/shapenetpart/main.py --cfg cfgs/shapene
 ```
 - Inference
 ```
-CUDA_VISIBLE_DEVICES='0' python examples/segmentation/main.py --cfg cfgs/shapenetpart/spotr.yaml mode=test --pretrained_path ckpt/ShapeNetPart/ckpt_best.pth
+CUDA_VISIBLE_DEVICES='0' python examples/shapenetpart/main.py --cfg cfgs/shapenetpart/spotr.yaml mode=test --pretrained_path ckpt/ShapeNetPart/ckpt_best.pth
 ```
 ### S3DIS
 - Train
