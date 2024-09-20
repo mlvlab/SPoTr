@@ -59,6 +59,3 @@ print_freq: 10
 val_freq: 1
 # ----------------- Model related
 pretrained_path: null 
-
-wandb:
-  project: PointNeXt-ScanObjectNN
